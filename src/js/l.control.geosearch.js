@@ -6,11 +6,11 @@
 L.GeoSearch = {};
 L.GeoSearch.Provider = {};
 
-L.GeoSearch.Result = function (x, y, zoomLevel, label) {
+L.GeoSearch.Result = function (x, y, label, zoomLevel) {
   this.X = x;
   this.Y = y;
-  this.zoomLevel = zoomLevel;
   this.Label = label;
+  this.zoomLevel = zoomLevel;
 };
 
 L.Control.GeoSearch = L.Control.extend({
@@ -23,6 +23,7 @@ L.Control.GeoSearch = L.Control.extend({
     country: '',
     searchLabel: 'search for address ...',
     notFoundMessage: 'Sorry, that address could not be found.',
+    genericErrorMessage: 'Error encountered while searching the address',
     messageHideDelay: 3000,
     zoomLevel: 18
   },
@@ -98,7 +99,7 @@ L.Control.GeoSearch = L.Control.extend({
       }
     }
     catch (error) {
-      this._printError(error);
+      this._printError();
     }
   },
 
@@ -114,7 +115,7 @@ L.Control.GeoSearch = L.Control.extend({
     };
 
     function getJsonP (url) {
-      url = url + '&callback=parseLocation'
+      url = url + '&callback=parseLocation';
       var script = document.createElement('script');
       script.id = 'getJsonP';
       script.src = url;
@@ -122,6 +123,7 @@ L.Control.GeoSearch = L.Control.extend({
       document.body.appendChild(script);
     }
 
+    L.DomUtil.addClass(this._searchbox, 'loading');
     if (XMLHttpRequest) {
       var xhr = new XMLHttpRequest();
 
@@ -135,10 +137,10 @@ L.Control.GeoSearch = L.Control.extend({
                   results = provider.ParseJSON(response);
 
               that._processResults(results);
-            } else if (xhr.status == 0 || xhr.status == 400) {
+            } else if (xhr.status === 0 || xhr.status === 400) {
               getJsonP(url);
             } else {
-              that._printError(xhr.responseText);
+              that._printError();
             }
           }
         };
@@ -149,7 +151,7 @@ L.Control.GeoSearch = L.Control.extend({
         var xdr = new XDomainRequest();
 
         xdr.onerror = function (err) {
-          that._printError(err);
+          that._printError();
         };
 
         xdr.onload = function () {
@@ -168,6 +170,7 @@ L.Control.GeoSearch = L.Control.extend({
   },
 
   _processResults: function(results) {
+    L.DomUtil.removeClass(this._searchbox, 'loading');
     if (results.length > 0) {
       this._map.fireEvent('geosearch_foundlocations', {Locations: results});
       this._showLocation(results[0]);
@@ -189,7 +192,11 @@ L.Control.GeoSearch = L.Control.extend({
   },
 
   _printError: function(message) {
+    L.DomUtil.removeClass(this._searchbox, 'loading');
     var elem = this._resultslist;
+    if (!message) {
+      message = this._config.genericErrorMessage;
+    }
     elem.innerHTML = '<li>' + message + '</li>';
     elem.style.display = 'block';
 
